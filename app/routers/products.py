@@ -1,4 +1,13 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from app.models.products import Product
+from app.backend.db_depends import get_db
+from app.schemas import CreateProduct
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+from sqlalchemy import insert
+from slugify import slugify
 
 router = APIRouter(prefix='/products', tags=['Продукты'])
 
@@ -8,9 +17,12 @@ async def get_all_products() -> dict:
     pass
 
 
-@router.post('/')
-async def create_product():
-    pass
+@router.post('/', status_code=status.HTTP_201_CREATED)
+async def create_product(db: Annotated[Session, Depends(get_db)], create_product: CreateProduct):
+    db.execute(insert(Product).values(name=create_product.name,
+                                      slug=slugify(create_product.name),
+                                      description=create_product.description,
+                                      ))
 
 
 @router.get('/{category_slug}')

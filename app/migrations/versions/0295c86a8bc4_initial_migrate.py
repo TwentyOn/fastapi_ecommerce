@@ -1,8 +1,8 @@
 """initial migrate
 
-Revision ID: 2e9d49ca3e62
+Revision ID: 0295c86a8bc4
 Revises: 
-Create Date: 2025-04-15 13:51:55.247238
+Create Date: 2025-04-15 20:04:50.980867
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '2e9d49ca3e62'
+revision: str = '0295c86a8bc4'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -38,12 +38,12 @@ def upgrade() -> None:
     sa.Column('slug', sa.String(), nullable=True),
     sa.Column('description', sa.String(), nullable=True),
     sa.Column('price', sa.Integer(), nullable=True),
-    sa.Column('categoty_id', sa.Integer(), nullable=True),
+    sa.Column('category_id', sa.Integer(), nullable=True),
     sa.Column('image_url', sa.String(), nullable=True),
     sa.Column('stock', sa.Integer(), nullable=True),
     sa.Column('rating', sa.Float(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=True),
-    sa.ForeignKeyConstraint(['categoty_id'], ['categories.id'], ),
+    sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_products_id'), 'products', ['id'], unique=False)

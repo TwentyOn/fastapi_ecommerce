@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from typing import Annotated
 
-from sqlalchemy.orm import Session
-from sqlalchemy import insert, select, update
-
+from app.backend.db_depends import get_db
 from app.schemas import CreateCategory, CreateProduct
 from app.models.category import Category
 
-from app.backend.db_depends import get_db
+from fastapi import APIRouter, Depends, status, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import insert, select, update
 from slugify import slugify
-
-from typing import Annotated
 
 router = APIRouter(prefix='/categories', tags=['Категории'])
 

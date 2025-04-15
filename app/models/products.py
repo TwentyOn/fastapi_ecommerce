@@ -11,7 +11,7 @@ class Product(Base):
     slug = Column(String, unique=True, index=True)
     description = Column(String)
     price = Column(Integer)
-    categoty_id = Column(Integer, ForeignKey('categories.id'))
+    category_id = Column(Integer, ForeignKey('categories.id'))
     image_url = Column(String)
     stock = Column(Integer)
     rating = Column(Float)

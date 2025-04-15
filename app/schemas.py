@@ -5,7 +5,7 @@ class CreateProduct(BaseModel):
     name: str
     description: str
     price: int
-    image_ulr: str
+    image_url: str
     stock: int
     category: int
 

@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, status, HTTPException
+
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, select, update
-from app.backend.db_depends import get_db
+
 from app.schemas import CreateCategory, CreateProduct
 from app.models.category import Category
+
+from app.backend.db_depends import get_db
 from slugify import slugify
 
 from typing import Annotated
@@ -27,9 +30,17 @@ async def create_category(db: Annotated[Session, Depends(get_db)], create_catego
             'transaction': 'successful'}
 
 
-@router.put('/')
-async def update_category():
-    pass
+@router.put('/{category_slug}')
+async def update_category(db: Annotated[Session, Depends(get_db)], category_slug: str, update_category: CreateCategory):
+    category = db.scalar(select(Category).where(Category.slug == category_slug))
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Записи с данным slug не найдено')
+
+    db.execute(update(Category).where(Category.slug == category_slug).values(name=update_category.name,
+                                                                             slug=slugify(update_category.name),
+                                                                             parent_id=update_category.parent_id))
+    db.commit()
+    return {'status': status.HTTP_200_OK, 'transaction': f'Запись обновлена'}
 
 
 @router.delete('/{category_slug}')

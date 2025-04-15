@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import insert
+from sqlalchemy import insert, select, update
 from app.backend.db_depends import get_db
 from app.schemas import CreateCategory, CreateProduct
 from app.models.category import Category
@@ -11,9 +11,10 @@ from typing import Annotated
 router = APIRouter(prefix='/categories', tags=['Категории'])
 
 
-@router.get('/{category_name}/{category_id}')
-async def get_all_categories() -> dict:
-    pass
+@router.get('/')
+async def get_all_categories(db: Annotated[Session, Depends(get_db)]):
+    categories = db.scalars(select(Category).where(Category.is_active == True)).all()
+    return categories
 
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
@@ -31,6 +32,11 @@ async def update_category():
     pass
 
 
-@router.delete('/')
-async def delete_category():
-    pass
+@router.delete('/{category_slug}')
+async def delete_category(db: Annotated[Session, Depends(get_db)], category_slug: str):
+    category = db.scalar(select(Category).where(Category.slug == category_slug, Category.is_active == True))
+    if not category:
+        raise HTTPException(status_code=404, detail='категория не найдена')
+    db.execute(update(Category).where(Category.slug == category_slug).values(is_active=False))
+    db.commit()
+    return {'status': status.HTTP_200_OK, 'transaction': "Удаление успешно"}

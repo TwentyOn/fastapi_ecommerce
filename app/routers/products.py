@@ -64,6 +64,11 @@ async def update_product_info(db: Annotated[Session, Depends(get_db)], product_s
     product = db.scalar(select(Product).where(Product.slug == product_slug))
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Продукт не найден')
+
+    category = db.scalar(select(Category).where(Category.id == update_product.category))
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Некорректная категория')
+
     db.execute(update(Product).where(Product.slug == product_slug).values(name=update_product.name,
                                                                           description=update_product.description,
                                                                           price=update_product.price,

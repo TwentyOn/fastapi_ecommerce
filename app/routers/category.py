@@ -1,4 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import insert
+from sqlalchemy.orm import Session
+
+from app.backend.db_depends import get_db
+from app.models.category import Category
+from app.schemas import CreateCategory
+from typing import Annotated
 
 router = APIRouter(prefix='/categories', tags=['категории'])
 
@@ -9,8 +16,11 @@ async def get_all_categories() -> str:
 
 
 @router.post('/all')
-async def create_category() -> str:
-    pass
+async def create_category(db_session: Annotated[Session, Depends(get_db)], category: CreateCategory) -> str:
+    smtm = insert(Category).values(name=category.name, slug=category.name, parent_id=category.parent_id)
+    db_session.execute(smtm)
+    db_session.commit()
+    return 'Всё ок'
 
 
 @router.put('/all')

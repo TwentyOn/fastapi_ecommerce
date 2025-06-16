@@ -1,26 +1,29 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import insert
+from fastapi import APIRouter, Depends, status
+from sqlalchemy import insert, delete, select
 from sqlalchemy.orm import Session
+from slugify import slugify
+
+from typing import Annotated
 
 from app.backend.db_depends import get_db
 from app.models.category import Category
 from app.schemas import CreateCategory
-from typing import Annotated
 
 router = APIRouter(prefix='/categories', tags=['категории'])
 
 
 @router.get('/all')
-async def get_all_categories() -> str:
-    return 'пока нет категорий'
+async def get_all_categories(db_session: Annotated[Session, Depends(get_db)]):
+    all_categories = db_session.scalars(select(Category)).all()
+    return all_categories
 
 
-@router.post('/all')
-async def create_category(db_session: Annotated[Session, Depends(get_db)], category: CreateCategory) -> str:
-    smtm = insert(Category).values(name=category.name, slug=category.name, parent_id=category.parent_id)
+@router.post('/', status_code=status.HTTP_201_CREATED)
+async def create_category(db_session: Annotated[Session, Depends(get_db)], category: CreateCategory) -> dict:
+    smtm = insert(Category).values(name=category.name, slug=slugify(category.name), parent_id=category.parent_id)
     db_session.execute(smtm)
     db_session.commit()
-    return 'Всё ок'
+    return {'status_code': status.HTTP_201_CREATED, 'transaction': 'Successful'}
 
 
 @router.put('/all')
@@ -28,6 +31,9 @@ async def update_category() -> str:
     pass
 
 
-@router.delete('/all')
-async def delete_category() -> str:
-    pass
+@router.delete('/delete')
+async def delete_category(db_session: Annotated[Session, Depends(get_db)], category_slug: str) -> str:
+    smtm = delete(Category).where(Category.slug == category_slug)
+    db_session.execute(smtm)
+    db_session.commit()
+    return 'Категория успешно удалена'

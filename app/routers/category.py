@@ -27,8 +27,19 @@ async def create_category(db_session: Annotated[Session, Depends(get_db)], categ
 
 
 @router.put('/{category_slug}')
-async def update_category(category_slug: str) -> str:
-    pass
+async def update_category(db_session: Annotated[Session, Depends(get_db)], category_slug: str,
+                          update_category: CreateCategory) -> dict:
+    category_to_update = db_session.scalar(select(Category)
+                                           .where(Category.slug == category_slug, Category.is_active == True))
+    if not category_to_update:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных категорий с данным SLUG')
+    else:
+        db_session.execute(update(Category).where(Category.slug == category_slug, Category.is_active == True).values(
+            name=update_category.name,
+            slug=slugify(update_category.name),
+            parent_id=update_category.parent_id))
+        db_session.commit()
+        return {'status_code': status.HTTP_200_OK, 'message': 'Обновление успешно'}
 
 
 @router.delete('/{category_slug}')

@@ -20,8 +20,8 @@ async def get_all_categories(db_session: Annotated[Session, Depends(get_db)]):
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 async def create_category(db_session: Annotated[Session, Depends(get_db)], category: CreateCategory) -> dict:
-    smtm = insert(Category).values(name=category.name, slug=slugify(category.name), parent_id=category.parent_id)
-    db_session.execute(smtm)
+    stmt = insert(Category).values(name=category.name, slug=slugify(category.name), parent_id=category.parent_id)
+    db_session.execute(stmt)
     db_session.commit()
     return {'status_code': status.HTTP_201_CREATED, 'transaction': 'Successful'}
 

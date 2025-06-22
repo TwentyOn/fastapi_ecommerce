@@ -21,6 +21,8 @@ async def all_products(db_session: Annotated[Session, Depends(get_db)]):
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 async def create_product(db_session: Annotated[Session, Depends(get_db)], new_product: CreateProduct) -> dict:
+    category = db_session.scalar(select(Category).where(Category.id == new_product.category))
+    get_or_404(category)  # проверка существует ли объект данной категории
     stmt = insert(Product).values(name=new_product.name,
                                   slug=slugify(new_product.name),
                                   description=new_product.description,
@@ -53,15 +55,16 @@ async def get_product_by_category(db_session: Annotated[Session, Depends(get_db)
 
 
 @router.get('/detail/{product_slug}', status_code=status.HTTP_200_OK)
-async def detail_product(db_session: Annotated[Session, Depends(get_db)], product_slug: str) -> Product:
+async def detail_product(db_session: Annotated[Session, Depends(get_db)], product_slug: str):
     product = db_session.scalar(select(Product).where(Product.slug == product_slug, Product.is_active == True))
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Продукт с данным SLUG не найден')
     return product
 
 
-@router.put('/{product_slug}')
-async def update_product(db_session: Annotated[Session, get_db], product_slug: str,
+@router.put('/{product_slug}', status_code=status.HTTP_200_OK)
+async def update_product(db_session: Annotated[Session, Depends(get_db)],
+                         product_slug: str,
                          update_product: CreateProduct) -> dict:
     product = db_session.scalar(select(Product).where(Product.slug == product_slug))
     get_or_404(product)
@@ -70,12 +73,21 @@ async def update_product(db_session: Annotated[Session, get_db], product_slug: s
                                                                                   description=update_product.description,
                                                                                   price=update_product.price,
                                                                                   image_url=update_product.image_url,
+                                                                                  stock=update_product.stock,
+                                                                                  category_id=update_product.category,
+                                                                                  rating=0.0
                                                                                   ))
+    db_session.commit()
+    return {'status_code': status.HTTP_200_OK, 'transaction': 'Обновление продукта произошло успешно'}
 
 
-@router.delete('/{product_slug}')
-def delete_product(product_slug: str):
-    pass
+@router.delete('/{product_slug}', status_code=status.HTTP_200_OK)
+def delete_product(session_db: Annotated[Session, Depends(get_db)], product_slug: str):
+    product = session_db.scalar(select(Product).where(Product.slug == product_slug))
+    get_or_404(product)
+    session_db.execute(update(Product).where(Product.slug == product_slug).values(is_active=False))
+    session_db.commit()
+    return dict(status_code=status.HTTP_200_OK, detail='Продукт успешно удален')
 
 
 def get_or_404(items: Product | Category | list) -> None:

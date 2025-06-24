@@ -50,6 +50,6 @@ async def delete_category(db_session: Annotated[Session, Depends(get_db)], categ
     if not category_to_delete:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных категорий с данным SLUG')
 
-    category_to_delete.is_active = False
+    category_to_delete.is_active = False # мягкое удаление
     await db_session.commit()
     return {'status_code': status.HTTP_200_OK, 'message': 'удаление успешно'}

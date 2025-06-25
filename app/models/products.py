@@ -16,6 +16,7 @@ class Product(Base):
     stock = Column(Integer)
     is_active = Column(Boolean, default=True)
     rating = Column(Float)
+    supplier_id = Column(Integer, ForeignKey('users.id'))
     category_id = Column(Integer, ForeignKey('categories.id'))
 
     category = Relationship('Category', uselist=False, back_populates='products')

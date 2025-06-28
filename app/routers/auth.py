@@ -31,6 +31,15 @@ async def create_user(db_session: Annotated[AsyncSession, Depends(get_db)], crea
     return {'status_code': status.HTTP_201_CREATED, 'transaction': 'Успех'}
 
 
+@router.post('/token')
+async def login(db_session: Annotated[AsyncSession, Depends(get_db)],
+                form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    user = await authenticate_user(db_session, form_data.username, form_data.password)
+    token = await create_access_token(user.id, user.username, user.is_admin, user.is_customer, user.is_supplier,
+                                      expires_delta=timedelta(minutes=20))
+    return {'access_token': token, 'token_type': 'bearer'}
+
+
 async def authenticate_user(db_session: Annotated[AsyncSession, Depends(get_db)], user_name: str, password: str):
     user = await db_session.scalar(select(User).where(User.username == user_name, User.is_active == True))
     if not user or not bcrypt_context.verify(password, user.password):
@@ -40,7 +49,9 @@ async def authenticate_user(db_session: Annotated[AsyncSession, Depends(get_db)]
                             )
     return user
 
-async def create_access_token(user_id: int, username: str, is_admin: bool, is_customer: bool, is_supplier: bool, expires_delta: timedelta):
+
+async def create_access_token(user_id: int, username: str, is_admin: bool, is_customer: bool, is_supplier: bool,
+                              expires_delta: timedelta):
     payload = {
         'sub': username,
         'id': user_id,
@@ -53,13 +64,37 @@ async def create_access_token(user_id: int, username: str, is_admin: bool, is_cu
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-@router.post('/token')
-async def login(db_session: Annotated[AsyncSession, Depends(get_db)],
-                form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    user = await authenticate_user(db_session, form_data.username, form_data.password)
-    token = await create_access_token(user.id, user.username, user.is_admin, user.is_customer, user.is_supplier, expires_delta=timedelta(minutes=20))
-    return {'access_token': token, 'token_type': 'bearer'}
+async def get_current_user(token: Annotated[str, Depends(qauth2_scheme)]):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str | None = payload['sub']
+        user_id: int | None = payload['id']
+        is_admin: bool | None = payload['is_admin']
+        is_supplier: bool | None = payload['is_supplier']
+        is_customer: bool | None = payload['is_customer']
+        expire: int | None = payload['exp']
+
+        if username is None or user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Не удалось подтвердить пользователя')
+        if not expire:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Некорректный токен')
+        if not isinstance(expire, int):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Некорректный формат токена')
+        current_time = datetime.now(timezone.utc).timestamp()
+        if expire < current_time:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен истек!')
+
+        return {'user_name': username,
+                'user_id': user_id,
+                'is_admin': is_admin,
+                'is_supplier': is_supplier,
+                'is_customer': is_customer}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен истек!')
+    except jwt.exceptions:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Не удалось подтвердить пользователя')
+
 
 @router.get('/read_current_user')
-async def read_current_user(user: str = Depends(qauth2_scheme)):
-    return user
+async def read_current_user(user: Annotated[dict, Depends(get_current_user)]):
+    return {'User': user}

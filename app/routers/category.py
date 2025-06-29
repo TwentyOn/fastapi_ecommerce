@@ -9,6 +9,7 @@ from typing import Annotated
 from app.backend.db_depends import get_db
 from app.models.category import Category
 from app.schemas import CreateCategory
+from app.routers.auth import get_current_user
 
 router = APIRouter(prefix='/categories', tags=['категории'])
 
@@ -20,7 +21,10 @@ async def get_all_categories(db_session: Annotated[AsyncSession, Depends(get_db)
 
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
-async def create_category(db_session: Annotated[AsyncSession, Depends(get_db)], category: CreateCategory) -> dict:
+async def create_category(db_session: Annotated[AsyncSession, Depends(get_db)], category: CreateCategory,
+                          get_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    if not get_user.get('is_admin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав')
     stmt = insert(Category).values(name=category.name, slug=slugify(category.name), parent_id=category.parent_id)
     await db_session.execute(stmt)
     await db_session.commit()
@@ -29,7 +33,10 @@ async def create_category(db_session: Annotated[AsyncSession, Depends(get_db)], 
 
 @router.put('/{category_slug}')
 async def update_category(db_session: Annotated[AsyncSession, Depends(get_db)], category_slug: str,
-                          update_category: CreateCategory) -> dict:
+                          update_category: CreateCategory,
+                          get_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    if not get_user.get('is_admin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав')
     category_to_update = await db_session.scalar(select(Category)
                                                  .where(Category.slug == category_slug, Category.is_active == True))
 
@@ -44,12 +51,15 @@ async def update_category(db_session: Annotated[AsyncSession, Depends(get_db)], 
 
 
 @router.delete('/{category_slug}')
-async def delete_category(db_session: Annotated[Session, Depends(get_db)], category_slug: str) -> dict:
+async def delete_category(db_session: Annotated[Session, Depends(get_db)], category_slug: str,
+                          get_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    if not get_user.get('is_admin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав')
     category_to_delete = await db_session.scalar(
         select(Category).where(Category.slug == category_slug, Category.is_active == True))
     if not category_to_delete:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных категорий с данным SLUG')
 
-    category_to_delete.is_active = False # мягкое удаление
+    category_to_delete.is_active = False  # мягкое удаление
     await db_session.commit()
     return {'status_code': status.HTTP_200_OK, 'message': 'удаление успешно'}

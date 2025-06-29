@@ -10,6 +10,7 @@ from app.backend.db_depends import get_db
 from app.models.products import Product
 from app.models.category import Category
 from app.schemas import CreateProduct
+from app.routers.auth import get_current_user
 
 router = APIRouter(prefix='/products', tags=['продукты'])
 
@@ -21,7 +22,10 @@ async def all_products(db_session: Annotated[AsyncSession, Depends(get_db)]):
 
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
-async def create_product(db_session: Annotated[AsyncSession, Depends(get_db)], new_product: CreateProduct) -> dict:
+async def create_product(db_session: Annotated[AsyncSession, Depends(get_db)], new_product: CreateProduct,
+                         get_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    if not any([get_user.get(i) for i in ('is_admin', 'is_supplier')]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав')
     category = await db_session.scalar(select(Category).where(Category.id == new_product.category))
     get_or_404(category)  # проверка существует ли объект данной категории
     stmt = insert(Product).values(name=new_product.name,
@@ -31,7 +35,8 @@ async def create_product(db_session: Annotated[AsyncSession, Depends(get_db)], n
                                   image_url=new_product.image_url,
                                   stock=new_product.stock,
                                   category_id=new_product.category,
-                                  rating=0.0
+                                  rating=0.0,
+                                  supplier_id=get_user.get('user_id')
                                   )
     await db_session.execute(stmt)
     await db_session.commit()
@@ -47,8 +52,8 @@ async def get_product_by_category(db_session: Annotated[AsyncSession, Depends(ge
     sub_categories = await db_session.scalars(select(Category).where(Category.parent_id == category.id))
     categories_id = [category.id for category in ([category] + sub_categories.all())]
     all_product_by_category = await db_session.scalars(select(Product).where(Product.is_active == True,
-                                                                       Product.stock > 0,
-                                                                       Product.category_id.in_(categories_id)))
+                                                                             Product.stock > 0,
+                                                                             Product.category_id.in_(categories_id)))
     if all_product_by_category:
         return all_product_by_category.all()
     else:
@@ -66,11 +71,18 @@ async def detail_product(db_session: Annotated[AsyncSession, Depends(get_db)], p
 @router.put('/{product_slug}', status_code=status.HTTP_200_OK)
 async def update_product(db_session: Annotated[AsyncSession, Depends(get_db)],
                          product_slug: str,
-                         update_product: CreateProduct) -> dict:
+                         update_product: CreateProduct,
+                         get_user: Annotated[dict, Depends(get_current_user)]) -> dict:
     product = await db_session.scalar(select(Product).where(Product.slug == product_slug))
     get_or_404(product)
 
-    product.name=update_product.name
+    if not any([get_user.get(i) for i in ('is_admin', 'is_supplier')]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав')
+    if get_user.get('is_supplier'):
+        if product.supplier_id != get_user.get('user_id'):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='У вас нет прав изменять данный товар')
+
+    product.name = update_product.name
     product.slug = slugify(update_product.name)
     product.description = update_product.description
     product.price = update_product.price
@@ -83,9 +95,15 @@ async def update_product(db_session: Annotated[AsyncSession, Depends(get_db)],
 
 
 @router.delete('/{product_slug}', status_code=status.HTTP_200_OK)
-async def delete_product(db_session: Annotated[AsyncSession, Depends(get_db)], product_slug: str):
+async def delete_product(db_session: Annotated[AsyncSession, Depends(get_db)], product_slug: str,
+                         get_user: Annotated[dict, Depends(get_current_user)]):
     product = await db_session.scalar(select(Product).where(Product.slug == product_slug))
     get_or_404(product)
+
+    if not any([get_user.get(i) for i in ('is_admin', 'is_supplier')]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав')
+    if get_user.get('is_supplier') and product.supplier_id != get_user.get('user_id'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='У вас нет прав изменять данный товар')
 
     product.is_active = False
     await db_session.commit()

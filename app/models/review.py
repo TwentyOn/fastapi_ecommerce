@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, Date
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date
 from app.backend.db import Base
 
-class Rewiew(Base):
+class Review(Base):
     __tablename__ = 'reviews'
 
     id = Column(Integer, primary_key=True)

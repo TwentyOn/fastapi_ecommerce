@@ -21,3 +21,8 @@ class CreateUser(BaseModel):
     username: str
     email: str
     password: str
+
+
+class CreateReview(BaseModel):
+    comment: str
+    grade: int = Field(ge=0, le=10)

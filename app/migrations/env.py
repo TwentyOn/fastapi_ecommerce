@@ -1,5 +1,6 @@
 import asyncio
 from logging.config import fileConfig
+import os, dotenv
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -13,6 +14,14 @@ from app.models import category, products, user, review
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+dotenv.load_dotenv()
+
+POSTGRES_DB = os.getenv('POSTGRES_DB')
+POSTGRES_USER = os.getenv('POSTGRES_USER')
+POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD')
+
+DATABASE_URL = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}"
+config.set_main_option('sqlalchemy.url', DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
